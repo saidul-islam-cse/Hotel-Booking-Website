@@ -1,10 +1,21 @@
 from rest_framework import serializers
 from .models import CustomUser, Profile, Hotel, HotelImage, Booking, Review, Transaction
+from django.contrib.auth.hashers import make_password
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['first_name', 'last_name','email', 'password']
+
+    def create(self, validated_data):
+        validated_data['password'] = make_password(validated_data['password'])
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        # Only hash password if it's provided in the update
+        if 'password' in validated_data and validated_data['password']:
+            validated_data['password'] = make_password(validated_data['password'])
+        return super().update(instance, validated_data)
     
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -42,3 +53,9 @@ class TransactionSerializer(serializers.ModelSerializer):
         model = Transaction
         fields = '__all__'
         read_only_fields = ['id', 'user', 'booking', 'amount', 'transaction_type', 'created_at']
+
+
+
+
+
+    
