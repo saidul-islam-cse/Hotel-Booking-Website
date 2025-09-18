@@ -75,3 +75,39 @@ def user_profile(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
+
+@api_view(['GET', 'POST'])
+def hotel_list_create(request):
+    if request.method == 'GET':
+        hotels = Hotel.objects.all()
+        serializer = serializers.HotelSerializer(hotels, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentication required'}, status=401)
+        
+        serializer = serializers.HotelSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+@api_view(['GET', 'POST'])
+def hotel_image_list_create(request):
+    if request.method == 'GET':
+        images = HotelImage.objects.all()
+        serializer = serializers.HotelImageSerializer(images, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentication required'}, status=401)
+        
+        serializer = serializers.HotelImageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)

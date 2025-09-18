@@ -11,4 +11,7 @@ urlpatterns = [
 
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    path('hotels/', views.hotel_list_create, name='hotels'),
+    path('hotel-images/', views.hotel_image_list_create, name='hotel-images'),
 ]
