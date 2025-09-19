@@ -1,5 +1,6 @@
 from django.shortcuts import render
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view,permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from .import serializers
@@ -111,3 +112,76 @@ def hotel_image_list_create(request):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def hotel_detail(request, pk):
+    try:
+        hotel = Hotel.objects.get(pk=pk)
+    except Hotel.DoesNotExist:
+        return Response({'detail': 'Hotel not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        serializer = serializers.HotelSerializer(hotel)
+        return Response(serializer.data)
+    
+    if request.user.is_superuser:
+        if request.method == 'PUT':
+            serializer = serializers.HotelSerializer(hotel, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        elif request.method == 'DELETE':
+            hotel.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def search_hotels(request):
+    serializer = serializers.HotelSearchSerializer(data=request.GET.dict())
+    if serializer.is_valid():
+        location = serializer.validated_data['location']
+        check_in = serializer.validated_data['check_in']
+        check_out = serializer.validated_data['check_out']
+        adults = serializer.validated_data['adults']
+        children = serializer.validated_data['children']
+        rooms_requested = serializer.validated_data['rooms']
+
+        # 1. Filter hotels by location
+        hotels = Hotel.objects.filter(location__icontains=location)
+        available_hotels = []
+
+        for hotel in hotels:
+            # 2. Check overlapping bookings
+            overlapping_bookings = Booking.objects.filter(
+                hotel=hotel,
+                check_in__lt=check_out, # booking.start < user.end
+                check_out__gt=check_in   # booking.end > user.start
+            )
+            booked_rooms = sum(b.rooms for b in overlapping_bookings)
+            available_rooms = hotel.total_rooms - booked_rooms
+
+            if available_rooms < rooms_requested:
+                continue  
+
+            # 3. Check capacity
+            total_capacity = available_rooms * hotel.capacity_per_room
+            if (adults + children) > total_capacity:
+                continue  
+
+            # 4. Add hotel to results
+            available_hotels.append({
+                "id": hotel.id,
+                "name": hotel.name,
+                "location": hotel.location,
+                "available_rooms": available_rooms,
+                "capacity_per_room": hotel.capacity_per_room,
+                "price_per_night": hotel.price_per_night
+            })
+
+        return Response({"results": available_hotels}, status=200)
+
+    return Response(serializer.errors, status=400)
+

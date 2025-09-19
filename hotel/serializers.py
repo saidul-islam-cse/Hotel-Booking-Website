@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import CustomUser, Profile, Hotel, HotelImage, Booking, Review, Transaction
 from django.contrib.auth.hashers import make_password
+from datetime import date
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -25,7 +26,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 class HotelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hotel
-        fields = ['name', 'address', 'city', 'description', 'price_per_night']
+        fields = ['name', 'address', 'location', 'description','total_rooms','available_rooms', 'price_per_night']
 
 class HotelImageSerializer(serializers.ModelSerializer):
     hotel = HotelSerializer(read_only=True)
@@ -41,7 +42,29 @@ class HotelImageSerializer(serializers.ModelSerializer):
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
-        fields = ['hotel', 'check_in', 'check_out']
+        fields = ['hotel', 'check_in', 'check_out', 'adults', 'children', 'rooms']
+
+
+        def validate(self, attrs):
+            check_in = attrs.get('check_in')
+            check_out = attrs.get('check_out')
+            adults = attrs.get('adults', 1)
+            rooms = attrs.get('rooms', 1)
+
+            if check_in <date.today():
+                raise serializers.ValidationError("Check-in date cannot be in the past.")
+            
+            if check_out <= check_in:
+                raise serializers.ValidationError("Check-out date must be after check-in date.")
+            
+            if adults <1:
+                raise serializers.ValidationError("At least one adult is required for booking.")
+            
+            if rooms <1:
+                raise serializers.ValidationError("At least one room must be booked.")
+            return attrs
+
+        
 
 class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
@@ -54,7 +77,13 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id', 'user', 'booking', 'amount', 'transaction_type', 'created_at']
 
-
+class HotelSearchSerializer(serializers.Serializer):
+    location = serializers.CharField(max_length=50)
+    check_in = serializers.DateField(input_formats=['%Y-%m-%d'])
+    check_out = serializers.DateField(input_formats=['%Y-%m-%d'])
+    adults = serializers.IntegerField(min_value=1)
+    children = serializers.IntegerField(min_value=0)
+    rooms = serializers.IntegerField(min_value=1)
 
 
 

@@ -31,8 +31,11 @@ class Profile(models.Model):
 class Hotel(models.Model):
     name = models.CharField(max_length=100)
     address = models.TextField()
-    city = models.CharField(max_length=50)
+    location = models.CharField(max_length=50, blank=True, null=True)
     description = models.TextField()
+    total_rooms = models.PositiveIntegerField(blank=True, null=True)
+    available_rooms = models.PositiveIntegerField(blank=True, null=True)
+    capacity_per_room = models.PositiveIntegerField(default=2, blank=True, null=True)
     price_per_night = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -51,6 +54,9 @@ class Booking(models.Model):
     hotel = models.ForeignKey(Hotel, related_name='bookings', on_delete=models.CASCADE)
     check_in = models.DateField()
     check_out = models.DateField()
+    adults = models.PositiveIntegerField(default=1)
+    children = models.PositiveIntegerField(default=0)
+    rooms = models.PositiveIntegerField(default=1)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=[('booked', 'Booked'), ('cancelled', 'Cancelled')], default='booked')
     created_at = models.DateTimeField(auto_now_add=True)

@@ -14,4 +14,7 @@ urlpatterns = [
 
     path('hotels/', views.hotel_list_create, name='hotels'),
     path('hotel-images/', views.hotel_image_list_create, name='hotel-images'),
+    path('hotel-details/<int:pk>/', views.hotel_detail, name='hotel-details'),
+
+    path('search/', views.search_hotels, name='hotel-search'),
 ]
