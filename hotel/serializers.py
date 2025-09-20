@@ -26,7 +26,8 @@ class ProfileSerializer(serializers.ModelSerializer):
 class HotelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hotel
-        fields = ['name', 'address', 'location', 'description','total_rooms','available_rooms', 'price_per_night']
+        fields = ['id','name', 'address', 'location', 'description','total_rooms', 'price_per_night']
+        read_only_fields = ['id', 'available_rooms']
 
 class HotelImageSerializer(serializers.ModelSerializer):
     hotel = HotelSerializer(read_only=True)
@@ -40,9 +41,11 @@ class HotelImageSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'hotel']
 
 class BookingSerializer(serializers.ModelSerializer):
+    # hotel = HotelSerializer(read_only=True)
     class Meta:
         model = Booking
-        fields = ['hotel', 'check_in', 'check_out', 'adults', 'children', 'rooms']
+        fields = ['id', 'user','hotel', 'check_in', 'check_out', 'adults', 'children', 'rooms', 'status', 'created_at']
+        read_only_fields = ['id', 'user', 'total_price', 'status', 'created_at']
 
 
         def validate(self, attrs):

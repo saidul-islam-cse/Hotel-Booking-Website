@@ -34,7 +34,7 @@ class Hotel(models.Model):
     location = models.CharField(max_length=50, blank=True, null=True)
     description = models.TextField()
     total_rooms = models.PositiveIntegerField(blank=True, null=True)
-    available_rooms = models.PositiveIntegerField(blank=True, null=True)
+    available_rooms = models.PositiveIntegerField( blank=True, null=True)
     capacity_per_room = models.PositiveIntegerField(default=2, blank=True, null=True)
     price_per_night = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -137,6 +137,30 @@ def hotel_detail(request, pk):
             return Response(status=status.HTTP_204_NO_CONTENT)
         
 
+def helper_functions(hotel, check_in, check_out, adults, children, rooms_requested):
+    # 1. Overlapping bookings check
+    overlapping_bookings = Booking.objects.filter(
+        hotel=hotel,
+        check_in__lt=check_out,
+        check_out__gt=check_in
+    )
+    booked_rooms = sum(b.rooms for b in overlapping_bookings)
+    available_rooms = hotel.total_rooms - booked_rooms
+    if available_rooms < rooms_requested:
+        return False, 'Not enough rooms available for the selected dates.'
+
+    # 2. Capacity check
+    total_capacity = rooms_requested * hotel.capacity_per_room
+    if (adults + children) > total_capacity:
+        return False, 'Selected rooms cannot accommodate the number of guests.'
+      
+    return True, {
+        "available_rooms": available_rooms,
+        "capacity_per_room": hotel.capacity_per_room,
+        "price_per_night": hotel.price_per_night
+    }
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def search_hotels(request):
@@ -149,39 +173,83 @@ def search_hotels(request):
         children = serializer.validated_data['children']
         rooms_requested = serializer.validated_data['rooms']
 
-        # 1. Filter hotels by location
+        # Filter hotels by location
         hotels = Hotel.objects.filter(location__icontains=location)
         available_hotels = []
 
         for hotel in hotels:
-            # 2. Check overlapping bookings
-            overlapping_bookings = Booking.objects.filter(
-                hotel=hotel,
-                check_in__lt=check_out, # booking.start < user.end
-                check_out__gt=check_in   # booking.end > user.start
-            )
-            booked_rooms = sum(b.rooms for b in overlapping_bookings)
-            available_rooms = hotel.total_rooms - booked_rooms
+            is_available, data = helper_functions(hotel, check_in, check_out, adults, children, rooms_requested)
 
-            if available_rooms < rooms_requested:
-                continue  
-
-            # 3. Check capacity
-            total_capacity = available_rooms * hotel.capacity_per_room
-            if (adults + children) > total_capacity:
-                continue  
-
-            # 4. Add hotel to results
-            available_hotels.append({
-                "id": hotel.id,
-                "name": hotel.name,
-                "location": hotel.location,
-                "available_rooms": available_rooms,
-                "capacity_per_room": hotel.capacity_per_room,
-                "price_per_night": hotel.price_per_night
-            })
+            # Add hotel to results
+            if is_available:
+                available_hotels.append({
+                    "id": hotel.id,
+                    "name": hotel.name,
+                    "location": hotel.location,
+                    "available_rooms": data['available_rooms'],
+                    "capacity_per_room": data['capacity_per_room'],
+                    "price_per_night": data['price_per_night']
+                })
 
         return Response({"results": available_hotels}, status=200)
 
     return Response(serializer.errors, status=400)
+
+
+
+@api_view(['POST', 'GET'])
+def booking_create(request):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'Authentication required'}, status=401)
+    if request.method == 'GET':
+        
+        bookings = Booking.objects.filter(user=request.user)
+        serializer = serializers.BookingSerializer(bookings, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = serializers.BookingSerializer(data=request.data)
+        if serializer.is_valid():
+            hotel = serializer.validated_data['hotel']
+            check_in = serializer.validated_data['check_in']
+            check_out = serializer.validated_data['check_out']
+            adults = serializer.validated_data.get('adults', 1)
+            children = serializer.validated_data.get('children', 0)
+            rooms_requested = serializer.validated_data.get('rooms', 1)
+
+            is_available, data =helper_functions(hotel, check_in, check_out, adults, children, rooms_requested)
+        
+            if not is_available:
+                 return Response({'detail': data}, status=400)
+
+            # Create booking
+            nights = (check_out - check_in).days
+            total_price = hotel.price_per_night * rooms_requested * nights
+
+
+            booking = Booking.objects.create(
+                user=request.user,
+                hotel=hotel,
+                check_in=check_in,
+                check_out=check_out,
+                adults=adults,
+                children=children,
+                rooms=rooms_requested,
+                total_price=total_price,
+                status='booked'
+            )
+
+            return Response(
+                {
+                    'detail': 'Booking created successfully.',
+                    'booking_id': booking.id
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    
+
+    
 
