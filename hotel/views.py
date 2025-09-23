@@ -339,3 +339,50 @@ def wallet_deposit(request):
     )
 
     return Response({'detail': 'Deposit successful', 'new_balance': profile.wallet_balance}, status=200)
+
+
+permission_classes([AllowAny])
+@api_view(['GET', 'POST'])
+def hotel_reviews(request, hotel_id):
+    try:
+        hotel = Hotel.objects.get(id=hotel_id)
+    except Hotel.DoesNotExist:
+        return Response({'detail': 'Hotel not found'}, status=404)
+
+    if request.method == 'GET':
+        reviews = Review.objects.filter(hotel=hotel)
+        serializer = serializers.ReviewSerializer(reviews, many=True)
+        return Response(serializer.data)
+
+    # POST (add review)
+    if not request.user.is_authenticated:
+        return Response({'detail': 'Authentication required'}, status=401)
+
+    serializer = serializers.ReviewSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(user=request.user, hotel=hotel)
+        return Response(serializer.data, status=201)
+    return Response(serializer.errors, status=400)
+
+
+@api_view(['PUT', 'DELETE'])
+def review_detail(request, hotel_id, review_id):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'Authentication required'}, status=401)
+    
+    try:
+        review = Review.objects.get(id=review_id, user=request.user, hotel_id=hotel_id)
+    except Review.DoesNotExist:
+        return Response({'detail': 'Review not found or not authorized'}, status=404)
+
+    if request.method == 'PUT':
+        serializer = serializers.ReviewSerializer(review, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+    elif request.method == 'DELETE':
+        review.delete()
+        return Response({'detail': 'Review deleted successfully'}, status=204)
+    return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)

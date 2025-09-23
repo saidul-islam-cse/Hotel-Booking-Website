@@ -72,7 +72,8 @@ class BookingSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
-        fields = ['hotel', 'rating', 'comment']
+        fields = '__all__'
+        read_only_fields = ['id', 'user','hotel', 'created_at', 'updated_at']
 
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
