@@ -5,9 +5,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from .import serializers
 from .models import CustomUser, Profile, Hotel, Booking, HotelImage, Review, Transaction
-from .utils import send_verification_email
+from .utils import send_verification_email, send_user_mail
 from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
+from decimal import Decimal
 
 # Create your views here.
 @api_view(['POST', 'GET'])
@@ -142,7 +143,8 @@ def helper_functions(hotel, check_in, check_out, adults, children, rooms_request
     overlapping_bookings = Booking.objects.filter(
         hotel=hotel,
         check_in__lt=check_out,
-        check_out__gt=check_in
+        check_out__gt=check_in,
+        status='booked'
     )
     booked_rooms = sum(b.rooms for b in overlapping_bookings)
     available_rooms = hotel.total_rooms - booked_rooms
@@ -226,6 +228,13 @@ def booking_create(request):
             nights = (check_out - check_in).days
             total_price = hotel.price_per_night * rooms_requested * nights
 
+            profile = request.user.profile
+
+            if profile.wallet_balance < total_price:
+                return Response({'detail': 'Insufficient wallet balance.'}, status=400)
+            
+            profile.wallet_balance -= total_price
+            profile.save()
 
             booking = Booking.objects.create(
                 user=request.user,
@@ -239,6 +248,20 @@ def booking_create(request):
                 status='booked'
             )
 
+            Transaction.objects.create(
+                user=request.user,
+                booking=booking,
+                amount=total_price,
+                transaction_type="Booking Payment"
+            )
+
+            send_user_mail(
+                request.user,
+                "Booking Confirmed",
+                f"Dear {request.user.first_name}, your booking for {hotel.name} "
+                f"from {check_in} to {check_out} is confirmed.\nTotal Paid: {total_price}."
+            )
+
             return Response(
                 {
                     'detail': 'Booking created successfully.',
@@ -250,6 +273,69 @@ def booking_create(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     
-
+@api_view(['POST'])
+def cancel_booking(request, booking_id):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'Authentication required'}, status=401)
+    try:
+        booking = Booking.objects.get(id=booking_id, user=request.user)
+    except Booking.DoesNotExist:
+        return Response({'detail': 'Booking not found'}, status=404)
     
+    if booking.status == 'cancelled':
+        return Response({'detail': 'Booking is already cancelled'}, status=400)
+    
+    
+    booking.status = 'cancelled'
+    booking.save()
+    
+    profile = request.user.profile
+    profile.wallet_balance += booking.total_price
+    profile.save()
 
+    Transaction.objects.create(
+        user=request.user,
+        booking=booking,
+        amount=booking.total_price,
+        transaction_type='Refund'
+    )
+    send_user_mail(
+        request.user,
+        "Booking Cancelled & Refund Processed",
+        f"Dear {request.user.first_name}, your booking at {booking.hotel.name} "
+        f"has been cancelled.\nRefund Amount: {booking.total_price} added back "
+        f"to your wallet.\nNew Balance: {profile.wallet_balance}."
+    )
+
+    return Response({'detail': 'Booking cancelled and amount refunded'}, status=200)
+    
+@api_view(['POST'])
+def wallet_deposit(request):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'Authentication required'}, status=401)
+    amount = request.data.get('amount')
+    try:
+        amount = Decimal(amount)
+    except:
+        return Response({'detail': 'Invalid amount'}, status=400)
+    
+    if amount <= 500:
+        return Response({'detail': 'Deposit amount must be  greater than or equal 500'}, status=400)
+    
+    profile = request.user.profile
+    profile.wallet_balance += amount
+    profile.save()
+    Transaction.objects.create(
+        user=request.user,
+        amount=amount,
+        transaction_type='Deposit'
+    )
+
+    send_user_mail(
+        request.user,
+        "Wallet Deposit Successful",
+        f"Dear {request.user.first_name}, your deposit of {amount} was successful.\n"
+        f"Your new wallet balance is {profile.wallet_balance}."
+    )
+
+    return Response({'detail': 'Deposit successful', 'new_balance': profile.wallet_balance}, status=200)

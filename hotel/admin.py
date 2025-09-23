@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, Profile, Booking, Hotel, HotelImage, Review
+from .models import CustomUser, Profile, Booking, Hotel, HotelImage, Review, Transaction
 # Register your models here.
 
 admin.site.register(CustomUser)
@@ -17,3 +17,4 @@ class HotelAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
 admin.site.register(HotelImage)
 admin.site.register(Review)
+admin.site.register(Transaction)

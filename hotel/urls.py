@@ -18,4 +18,6 @@ urlpatterns = [
 
     path('search/', views.search_hotels, name='hotel-search'),
     path('bookings/', views.booking_create, name='bookings'),
+    path('cancel-booking/<int:booking_id>/', views.cancel_booking, name='cancel-booking'),
+    path('wallet/deposit/', views.wallet_deposit, name='wallet-deposit'),
 ]
