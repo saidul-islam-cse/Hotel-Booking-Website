@@ -507,3 +507,16 @@ def user_transactions(request):
     transactions = Transaction.objects.filter(user=request.user).order_by('-created_at')
     serializer = serializers.TransactionSerializer(transactions, many=True)
     return Response(serializer.data)
+
+
+from django.http import HttpResponse
+import smtplib
+
+def check_smtp(request):
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
+        server.starttls()
+        server.quit()
+        return HttpResponse("✅ SMTP connection successful!")
+    except Exception as e:
+        return HttpResponse(f"❌ SMTP connection failed: {e}")
