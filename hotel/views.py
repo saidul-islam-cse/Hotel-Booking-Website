@@ -120,10 +120,11 @@ def user_profile(request):
     responses={201: serializers.HotelSerializer(), 400: 'Validation error'}
 )
 @api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
 def hotel_list_create(request):
     if request.method == 'GET':
         hotels = Hotel.objects.all()
-        serializer = serializers.HotelSerializer(hotels, many=True)
+        serializer = serializers.HotelSerializer(hotels, many=True, context={'request': request})
         return Response(serializer.data)
     
     elif request.method == 'POST':
@@ -178,6 +179,7 @@ def hotel_image_list_create(request):
     responses={204: 'Hotel deleted successfully', 404: 'Hotel not found'}
 )
 @api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([AllowAny])
 def hotel_detail(request, pk):
     try:
         hotel = Hotel.objects.get(pk=pk)
@@ -256,6 +258,7 @@ def search_hotels(request):
                     "id": hotel.id,
                     "name": hotel.name,
                     "location": hotel.location,
+                    "image": (f"http://127.0.0.1:8000{hotel.images.first().image.url}" if hotel.images.exists() else None),
                     "available_rooms": data['available_rooms'],
                     "capacity_per_room": data['capacity_per_room'],
                     "price_per_night": data['price_per_night']
@@ -494,3 +497,13 @@ def review_detail(request, hotel_id, review_id):
         review.delete()
         return Response({'detail': 'Review deleted successfully'}, status=204)
     return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+@api_view(['GET'])
+def user_transactions(request):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'Authentication required'}, status=401)
+    
+    transactions = Transaction.objects.filter(user=request.user).order_by('-created_at')
+    serializer = serializers.TransactionSerializer(transactions, many=True)
+    return Response(serializer.data)

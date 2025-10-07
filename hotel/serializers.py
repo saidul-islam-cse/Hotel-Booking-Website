@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import CustomUser, Profile, Hotel, HotelImage, Booking, Review, Transaction
 from django.contrib.auth.hashers import make_password
 from datetime import date
+from django.db.models import Avg, Max
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,15 +20,38 @@ class UserSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
     
 class ProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
     class Meta:
         model = Profile
-        fields = ['phone_number']
+        fields = ['phone_number', 'wallet_balance', 'created_at', 'user',]
+        read_only_fields = ['wallet_balance', 'created_at', 'user']
 
 class HotelSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    max_rating = serializers.SerializerMethodField()
     class Meta:
         model = Hotel
-        fields = ['id','name', 'address', 'location', 'description','total_rooms', 'price_per_night']
-        read_only_fields = ['id', 'available_rooms']
+        fields = ['id','name', 'address', 'location', 'description','total_rooms', 'price_per_night','image', 'average_rating', 'max_rating']
+        read_only_fields = ['id', 'available_rooms','image']
+    
+    def get_image(self, obj):
+        first_image = obj.images.first()  # related_name='images'
+        if first_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(first_image.image.url)
+            return first_image.image.url
+        return None
+
+    def get_average_rating(self, obj):
+        avg_rating = obj.reviews.aggregate(Avg('rating'))['rating__avg']
+        return round(avg_rating, 1) if avg_rating else None
+
+    def get_max_rating(self, obj):
+        max_rating = obj.reviews.aggregate(Max('rating'))['rating__max']
+        return max_rating if max_rating else None
+
 
 class HotelImageSerializer(serializers.ModelSerializer):
     hotel = HotelSerializer(read_only=True)
@@ -42,30 +66,31 @@ class HotelImageSerializer(serializers.ModelSerializer):
 
 class BookingSerializer(serializers.ModelSerializer):
     # hotel = HotelSerializer(read_only=True)
+    hotel_name = serializers.CharField(source="hotel.name", read_only=True) 
     class Meta:
         model = Booking
-        fields = ['id', 'user','hotel', 'check_in', 'check_out', 'adults', 'children', 'rooms', 'status', 'created_at']
+        fields = ['id', 'user','hotel', 'hotel_name', 'check_in', 'check_out', 'adults', 'children', 'rooms','total_price', 'status', 'created_at']
         read_only_fields = ['id', 'user', 'total_price', 'status', 'created_at']
 
 
-        def validate(self, attrs):
-            check_in = attrs.get('check_in')
-            check_out = attrs.get('check_out')
-            adults = attrs.get('adults', 1)
-            rooms = attrs.get('rooms', 1)
+    def validate(self, attrs):
+        check_in = attrs.get('check_in')
+        check_out = attrs.get('check_out')
+        adults = attrs.get('adults', 1)
+        rooms = attrs.get('rooms', 1)
 
-            if check_in <date.today():
-                raise serializers.ValidationError("Check-in date cannot be in the past.")
+        if check_in <date.today():
+            raise serializers.ValidationError("Check-in date cannot be in the past.")
             
-            if check_out <= check_in:
-                raise serializers.ValidationError("Check-out date must be after check-in date.")
+        if check_out <= check_in:
+            raise serializers.ValidationError("Check-out date must be after check-in date.")
             
-            if adults <1:
-                raise serializers.ValidationError("At least one adult is required for booking.")
+        if adults <1:
+            raise serializers.ValidationError("At least one adult is required for booking.")
             
-            if rooms <1:
-                raise serializers.ValidationError("At least one room must be booked.")
-            return attrs
+        if rooms <1:
+            raise serializers.ValidationError("At least one room must be booked.")
+        return attrs
 
         
 
@@ -88,6 +113,25 @@ class HotelSearchSerializer(serializers.Serializer):
     adults = serializers.IntegerField(min_value=1)
     children = serializers.IntegerField(min_value=0)
     rooms = serializers.IntegerField(min_value=1)
+
+    def validate(self, attrs):
+        check_in = attrs.get('check_in')
+        check_out = attrs.get('check_out')
+        adults = attrs.get('adults', 1)
+        rooms = attrs.get('rooms', 1)
+
+        if check_in <date.today():
+            raise serializers.ValidationError("Check-in date cannot be in the past.")
+            
+        if check_out <= check_in:
+            raise serializers.ValidationError("Check-out date must be after check-in date.")
+            
+        if adults <1:
+            raise serializers.ValidationError("At least one adult is required for booking.")
+            
+        if rooms <1:
+            raise serializers.ValidationError("At least one room must be booked.")
+        return attrs
 
 
 

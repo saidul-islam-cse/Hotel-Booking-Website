@@ -33,6 +33,7 @@ urlpatterns = [
     path('bookings/', views.booking_create, name='bookings'),
     path('cancel-booking/<int:booking_id>/', views.cancel_booking, name='cancel-booking'),
     path('wallet/deposit/', views.wallet_deposit, name='wallet-deposit'),
+    path('transactions/', views.user_transactions, name='user-transactions'),
 
     path('hotels/<int:hotel_id>/reviews/', views.hotel_reviews, name='hotel-reviews'),
     path('hotels/<int:hotel_id>/reviews/<int:review_id>/', views.review_detail, name='review-detail'),

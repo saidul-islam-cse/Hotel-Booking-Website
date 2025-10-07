@@ -11,7 +11,7 @@ def send_verification_email(request, user):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
 
     current_site = get_current_site(request)
-    verification_link = f"http://{current_site.domain}/verify/{uid}/{token}"
+    verification_link = f"http://localhost:5173/verify/{uid}/{token}"
 
     email_subject = "Verify Your Email Address"
     email_body = render_to_string(
@@ -30,7 +30,7 @@ def send_verification_email(request, user):
     email.send()
 
 from django.core.mail import send_mail
-from django.conf import settings
+
 
 def send_user_mail(user, subject, message):
     
