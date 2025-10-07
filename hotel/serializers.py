@@ -3,6 +3,7 @@ from .models import CustomUser, Profile, Hotel, HotelImage, Booking, Review, Tra
 from django.contrib.auth.hashers import make_password
 from datetime import date
 from django.db.models import Avg, Max
+import os
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -38,10 +39,7 @@ class HotelSerializer(serializers.ModelSerializer):
     def get_image(self, obj):
         first_image = obj.images.first()  # related_name='images'
         if first_image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(first_image.image.url)
-            return first_image.image.url
+            return f"{os.getenv('RENDER_BACKEND_URL')}{first_image.image.url}"
         return None
 
     def get_average_rating(self, obj):

@@ -32,6 +32,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['*','https://hotel-booking-website-46ia.onrender.com/']
 CSRF_TRUSTED_ORIGINS = ['https://hotel-booking-website-46ia.onrender.com']
 LOGIN_URL = "http://localhost:5173/login/"
+RENDER_BACKEND_URL = env("RENDER_BACKEND_URL", default="http://127.0.0.1:8000")
 
 # Application definition
 
